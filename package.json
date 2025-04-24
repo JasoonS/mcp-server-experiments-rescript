@@ -1,22 +1,38 @@
 {
   "name": "hyperindex-mcp-server",
-  "version": "0.0.0",
+  "version": "0.0.1",
+  "description": "A Model Context Protocol server for HyperIndex in ReScript",
+  "type": "module",
+  "bin": {
+    "mcp-server": "./src/Index.res.mjs"
+  },
+  "files": [
+    "src"
+  ],
   "scripts": {
-    "res:build": "rescript",
+    "res:build": "rescript && node -e \"require('fs').chmodSync('src/Index.res.mjs', '755')\"",
     "res:clean": "rescript clean",
-    "res:dev": "rescript -w"
+    "res:dev": "rescript -w",
+    "inspector": "pnpx @modelcontextprotocol/inspector src/Index.res.mjs",
+    "dev": "concurrently \"npm run res:dev\" \"npm run inspector\"",
+    "debug": "node --inspect src/Index.res.mjs",
+    "debug:watch": "concurrently \"npm run res:dev\" \"npm run debug\"",
+    "start": "node src/Index.res.mjs"
   },
   "keywords": [
-    "rescript"
+    "rescript",
+    "mcp"
   ],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@modelcontextprotocol/inspector": "^0.10.2",
     "@modelcontextprotocol/sdk": "^1.10.2",
     "@rescript/core": "^1.6.1",
     "rescript": "^12.0.0-alpha.12"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "sury": "10.0.0-rc.1"
   }
 }
