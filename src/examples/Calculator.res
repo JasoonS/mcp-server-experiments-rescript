@@ -11,7 +11,8 @@
  */
 open MCP_SDK
 
-type operation = Add | Subtract | Multiply | Divide
+type operation =
+  | @as("add") Add | @as("subtract") Subtract | @as("multiply") Multiply | @as("divide") Divide
 
 type calculatorParams = {
   a: float,
@@ -38,41 +39,19 @@ external isFinite: float => bool = "isFinite"
  * @throws Will not throw - all errors are handled and returned in the response
  */
 let registerCalculatorTool = (server: McpServer.t) => {
-  // Define schema using ReScript Schema
+  // Note need to use Zod, since it is integrated with the MCP sdk.
   let calculatorSchema = {
-    // Create object schema for the whole calculator parameters
-    S.object(s => {
-      a: s.field(
-        "a",
-        S.float->S.refine(schema =>
-          value => {
-            if !isFinite(value) {
-              schema.fail("First number must be finite")
-            }
-          }
-        ),
-      ),
-      b: s.field(
-        "b",
-        S.float->S.refine(schema =>
-          value => {
-            if !isFinite(value) {
-              schema.fail("Second number must be finite")
-            }
-          }
-        ),
-      ),
-      operation: s.field(
-        "operation",
-        S.union([S.literal(Add), S.literal(Subtract), S.literal(Multiply), S.literal(Divide)]),
-      ),
-    })
-  }
+    // Create dictionary for object properties
+    let props = {
+      "a": Zod.z->Zod.number->Zod.finite->Zod.safe->Zod.describe("First number for calculation"),
+      "b": Zod.z->Zod.number->Zod.finite->Zod.safe->Zod.describe("Second number for calculation"),
+      "operation": Zod.z
+      ->Zod.enum_(["add", "subtract", "multiply", "divide"])
+      ->Zod.describe("The arithmetic operation to perform"),
+    }
 
-  // Convert schema to shape for MCP
-  let schemaShape = {
-    let jsonSchema = S.toJSONSchema(calculatorSchema)
-    schemaToShape(jsonSchema)
+    // Create object schema
+    Zod.z->Zod.object(props->Obj.magic)
   }
 
   // Function to handle calculation with strong typing
@@ -95,9 +74,11 @@ let registerCalculatorTool = (server: McpServer.t) => {
   server->McpServer.tool(
     "calculate",
     "Perform basic arithmetic operations",
-    schemaShape,
+    // schemaShape,
+    calculatorSchema->Zod.shape,
     async params => {
-      try {
+      // Console.log("here")
+      let response = try {
         // The incoming params object may have runtime type differences,
         // so we cast it safely to our strongly typed version
         let typedParams = params->Obj.magic
@@ -156,6 +137,8 @@ let registerCalculatorTool = (server: McpServer.t) => {
           isError: true,
         }
       }
+      Console.error(response)
+      response
     },
   )
 }

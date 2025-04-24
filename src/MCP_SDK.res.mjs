@@ -5,8 +5,6 @@ let McpServer = {};
 
 let StdioServerTransport = {};
 
-let Zod = {};
-
 function onUncaughtException(proc, handler) {
   proc.on("uncaughtException", handler);
 }
@@ -32,7 +30,6 @@ let Process = {
 export {
   McpServer,
   StdioServerTransport,
-  Zod,
   Process,
 }
 /* No side effect */

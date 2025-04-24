@@ -13,7 +13,7 @@
     "res:build": "rescript && node -e \"require('fs').chmodSync('src/Index.res.mjs', '755')\"",
     "res:clean": "rescript clean",
     "res:dev": "rescript -w",
-    "inspector": "pnpx @modelcontextprotocol/inspector src/Index.res.mjs",
+    "inspector": "pnpx @modelcontextprotocol/inspector node src/Index.res.mjs",
     "dev": "concurrently \"npm run res:dev\" \"npm run inspector\"",
     "debug": "node --inspect src/Index.res.mjs",
     "debug:watch": "concurrently \"npm run res:dev\" \"npm run debug\"",
@@ -29,7 +29,8 @@
     "@modelcontextprotocol/inspector": "^0.10.2",
     "@modelcontextprotocol/sdk": "^1.10.2",
     "@rescript/core": "^1.6.1",
-    "rescript": "^12.0.0-alpha.12"
+    "rescript": "^12.0.0-alpha.12",
+    "zod": "^3.24.3"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
