@@ -16,6 +16,8 @@ external z: t = "z"
 @send external number: t => schema<float> = "number"
 @send external boolean: t => schema<bool> = "boolean"
 @send external array: (t, schema<'a>) => schema<array<'a>> = "array"
+@send external optional: schema<'a> => schema<option<'a>> = "optional"
+@send external nullish: schema<'a> => schema<option<'a>> = "nullish"
 
 // Schema modifiers
 @send external positive: schema<float> => schema<float> = "positive"

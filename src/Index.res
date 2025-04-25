@@ -15,6 +15,8 @@ open MCP_SDK
 
 // Import our tool implementations
 open Calculator
+open TextTool
+open InitializeIndexer
 
 /**
  * Create a new MCP server instance with full capabilities
@@ -55,6 +57,8 @@ Process.process->Process.onUncaughtException(error => {
 // Register example tools
 try {
   registerCalculatorTool(server)
+  registerTextTools(server)
+  registerInitializeIndexerTool(server)
   logMessage("info", "Successfully registered all tools")
 } catch {
 | error => {
