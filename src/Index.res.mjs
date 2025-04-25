@@ -6,7 +6,7 @@ import * as Calculator from "./examples/Calculator.res.mjs";
 import * as Stdlib_Exn from "rescript/lib/es6/Stdlib_Exn.js";
 import * as Core__Option from "@rescript/core/src/Core__Option.res.mjs";
 import * as Core__Promise from "@rescript/core/src/Core__Promise.res.mjs";
-import * as InitializeIndexer from "./examples/InitializeIndexer.res.mjs";
+import * as InitializeIndexer from "./hyperindex/InitializeIndexer.res.mjs";
 import * as Primitive_exceptions from "rescript/lib/es6/Primitive_exceptions.js";
 import * as McpJs from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as StdioJs from "@modelcontextprotocol/sdk/server/stdio.js";

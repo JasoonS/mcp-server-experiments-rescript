@@ -17,7 +17,8 @@ let Fs$1 = {
 
 function debugLog(message) {
   try {
-    Fs.appendFileSync("./debug.log", message + "\n");
+    let timestamp = Date.now().toString();
+    Fs.appendFileSync("debug.log", "[" + timestamp + "] " + message + "\n");
     return;
   } catch (exn) {
     return;
@@ -64,6 +65,11 @@ function createDirectoryRecursive(path) {
       Error: new Error()
     };
   }
+}
+
+function getScriptPath() {
+  let scriptDir = Path.resolve("./src");
+  return Path.join(scriptDir, "initilazize.sh");
 }
 
 function registerInitializeIndexerTool(server) {
@@ -175,32 +181,24 @@ function registerInitializeIndexerTool(server) {
           Error: new Error()
         };
       }
-      debugLog("Creating directory: " + outputDirectory);
+      let scriptPath = getScriptPath();
       createDirectoryRecursive(outputDirectory);
-      let command = "pnpx envio init contract-import explorer -n " + name + " -l " + language + " -d " + outputDirectory + " -c " + contractAddress + " -b " + network$1 + " --api-token " + apiToken;
+      let command = scriptPath + " --name \"" + name + "\" --language " + language + " --output-dir \"" + outputDirectory + "\" --contract-address " + contractAddress + " --network " + network$1 + " --api-token \"" + apiToken + "\"";
       debugLog("Executing command: " + command);
-      debugLog("\n======= MANUAL TEST SCRIPT =======\nTo test this command manually, you can run:\n\ncd /tmp\nmkdir -p test-envio-indexer\ncd test-envio-indexer\n\n# Then run the command:\n" + command + "\n\n# IMPORTANT: The CLI may require pressing Enter key TWICE during execution\n# to confirm options or proceed through interactive prompts\n\n# Alternatives to try if above doesn't work:\n# - pnpx envio init (then answer prompts interactively)\n# - echo '\n\n' | " + command + " (pipe multiple newlines)\n======= END TEST SCRIPT =======\n");
       try {
-        debugLog("Attempting to execute command with interactive input");
-        let processOptions = {
+        Child_process.execSync("chmod +x " + scriptPath, {
           encoding: "utf8",
-          stdio: [
-            "pipe",
-            "pipe",
-            "pipe"
-          ],
-          input: "\n\n\n\n",
-          shell: true,
-          timeout: 120000
-        };
-        debugLog("Executing with input of multiple Enter keypresses");
-        let result = Child_process.execSync(command, processOptions);
-        debugLog("Command output: " + result);
-        debugLog("Command executed successfully");
+          stdio: "pipe"
+        });
+        let result = Child_process.execSync(command, {
+          encoding: "utf8",
+          stdio: "pipe",
+          timeout: 300000
+        });
         return {
           content: [{
               type: "text",
-              text: "Successfully initialized Envio indexer \"" + name + "\" in " + outputDirectory
+              text: result.trim()
             }]
         };
       } catch (raw_exn) {
@@ -208,13 +206,14 @@ function registerInitializeIndexerTool(server) {
         let errorMsg = Core__Option.getOr(Core__Option.flatMap(Stdlib_Exn.asJsExn(exn), e => e.message), "Unknown error");
         debugLog("Command execution failed: " + errorMsg);
         try {
-          debugLog("Trying fallback with echo pipe approach");
-          let echoPipeCommand = "echo -e '\\n\\n\\n\\n' | " + command;
-          debugLog("Echo pipe command: " + echoPipeCommand);
-          let result$1 = Child_process.execSync(echoPipeCommand, {
+          debugLog("Trying fallback with alternative approach");
+          let yesCommand = "yes \"\" | head -n 10 | (sleep 2 && cat) | " + command;
+          debugLog("Yes command: " + yesCommand);
+          let result$1 = Child_process.execSync(yesCommand, {
             encoding: "utf8",
             stdio: "pipe",
-            shell: true
+            shell: true,
+            timeout: 300000
           });
           debugLog("Fallback command output: " + result$1);
           debugLog("Command executed successfully via fallback");
@@ -228,11 +227,13 @@ function registerInitializeIndexerTool(server) {
           let fallbackExn = Primitive_exceptions.internalToException(raw_fallbackExn);
           let fallbackErrorMsg = Core__Option.getOr(Core__Option.flatMap(Stdlib_Exn.asJsExn(fallbackExn), e => e.message), "Unknown error");
           debugLog("Fallback execution also failed: " + fallbackErrorMsg);
+          let errorDetails = "\nCommand attempted: " + command + "\nPrimary error: " + errorMsg + "\nFallback error: " + fallbackErrorMsg + "\n\nPossible solutions:\n1. Try running the command manually to see the interactive prompts\n2. Check if the envio CLI has a non-interactive mode or configuration options\n3. Consider using a dedicated automation tool like 'expect' if available\n";
+          debugLog(errorDetails);
           throw {
             RE_EXN_ID: IndexerError,
             _1: {
               TAG: "CommandExecutionError",
-              _0: errorMsg + "\nFallback also failed: " + fallbackErrorMsg
+              _0: errorDetails
             },
             Error: new Error()
           };
@@ -309,6 +310,7 @@ export {
   IndexerError,
   directoryExists,
   createDirectoryRecursive,
+  getScriptPath,
   registerInitializeIndexerTool,
 }
 /* fs Not a pure module */

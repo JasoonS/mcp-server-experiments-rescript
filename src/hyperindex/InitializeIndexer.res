@@ -2,7 +2,7 @@
  * Initialize Indexer Tool
  *
  * This module implements an MCP tool that initializes an Envio indexer by running
- * the 'envio init' command with appropriate parameters.
+ * an external bash script that handles the interactive CLI process.
  */
 open MCP_SDK
 
@@ -16,14 +16,16 @@ module Fs = {
 
   @module("fs") @val external statSync: string => stats = "statSync"
   @module("fs") @val external mkdirSync: (string, {"recursive": bool}) => unit = "mkdirSync"
-  @module("fs") @val external appendFileSync: (string, string) => unit = "appendFileSync"
   @module("fs") @val external writeFileSync: (string, string) => unit = "writeFileSync"
+  @module("fs") @val external appendFileSync: (string, string) => unit = "appendFileSync"
 }
 
-// Debug logging utility that writes to file instead of stdout
-let debugLog = message => {
+// Debug logging utility that writes to file
+let debugLog = (message: string): unit => {
   try {
-    Fs.appendFileSync("./debug.log", message ++ "\n")
+    let timestamp = Js.Date.now()->Js.Float.toString
+    // Fs.appendFileSync("/tmp/mcp_debug.log", `[${timestamp}] ${message}\n`)
+    Fs.appendFileSync("debug.log", `[${timestamp}] ${message}\n`)
   } catch {
   | _ => () // Silently fail if we can't write to the log
   }
@@ -35,6 +37,7 @@ let debugLog = message => {
 module Path = {
   @module("path") @variadic
   external join: array<string> => string = "join"
+  @module("path") @val external resolve: string => string = "resolve"
 }
 
 module Os = {
@@ -92,7 +95,6 @@ let directoryExists = (path: string): bool => {
   | _ => false
   }
 }
-
 // Create directory recursively (similar to mkdir -p)
 let createDirectoryRecursive = (path: string): unit => {
   try {
@@ -108,6 +110,13 @@ let createDirectoryRecursive = (path: string): unit => {
       ->Option.getOr("Unknown error")
     throw(IndexerError(DirectoryCreationError(errorMsg)))
   }
+}
+
+// Get path to the initialization script
+let getScriptPath = (): string => {
+  // Get the current directory of this module
+  let scriptDir = Path.resolve("./src")
+  Path.join([scriptDir, "initilazize.sh"])
 }
 
 /**
@@ -150,7 +159,7 @@ let registerInitializeIndexerTool = (server: McpServer.t) => {
         let rawParams = params->Obj.magic
         debugLog("Received params: " ++ jsonStringify(rawParams))
 
-        // Create a safe version of the params
+        // Simply get the parameters directly
         let name = rawParams.name
         let contractAddresses = rawParams.contractAddresses
         let networks = rawParams.networks
@@ -204,115 +213,39 @@ let registerInitializeIndexerTool = (server: McpServer.t) => {
         | None => throw(IndexerError(InvalidParams("No network provided")))
         }
 
-        // Create the directory if it doesn't exist
-        debugLog("Creating directory: " ++ outputDirectory)
+        // Get the path to the initialization script
+        let scriptPath = getScriptPath()
+
         createDirectoryRecursive(outputDirectory)
 
-        // Build the command
-        // Should have: --all-events, --single-contract - something is broken :thinking:
-        let command = `pnpx envio init contract-import explorer -n ${name} -l ${language} -d ${outputDirectory} -c ${contractAddress} -b ${network} --api-token ${apiToken}`
+        // Build the command to execute the bash script with parameters
+        let command = `${scriptPath} --name "${name}" --language ${language} --output-dir "${outputDirectory}" --contract-address ${contractAddress} --network ${network} --api-token "${apiToken}"`
         debugLog("Executing command: " ++ command)
-
-        // Add script suggestion for manual testing
-        debugLog(
-          "
-======= MANUAL TEST SCRIPT =======
-To test this command manually, you can run:
-
-cd /tmp
-mkdir -p test-envio-indexer
-cd test-envio-indexer
-
-# Then run the command:
-" ++
-          command ++
-          "
-
-# IMPORTANT: The CLI may require pressing Enter key TWICE during execution
-# to confirm options or proceed through interactive prompts
-
-# Alternatives to try if above doesn't work:
-# - pnpx envio init (then answer prompts interactively)
-# - echo '\n\n' | " ++
-          command ++ " (pipe multiple newlines)
-======= END TEST SCRIPT =======
-",
-        )
 
         // Execute the command
         try {
-          debugLog("Creating a temporary script with delays between Enter keypresses")
-
-          // Create a temporary directory for our script
-          let tmpDir = Os.homedir()
-          let scriptPath = Path.join([tmpDir, "envio_init_script.sh"])
-
-          // Create a script that uses 'expect' pattern with delays between inputs
-          let scriptContent = `#!/bin/bash
-set -e
-
-# Function to press Enter with delay
-press_enter_with_delay() {
-  sleep $1
-  echo ""
-}
-
-# Start the command
-${command} &
-
-# Get the process ID
-PID=$!
-
-# Wait before sending first Enter
-press_enter_with_delay 3
-
-# Wait before sending second Enter
-press_enter_with_delay 3
-
-# Wait before sending another Enter (just in case)
-press_enter_with_delay 3
-
-# Wait before sending final Enter (extra safety)
-press_enter_with_delay 3
-
-# Wait for the process to complete
-wait $PID || true
-
-echo "Script completed"
-`
-          debugLog("Script content: " + scriptContent)
-
-          // Write the script to disk
-          Fs.writeFileSync(scriptPath, scriptContent)
-
-          // Make it executable
+          // Make sure the script is executable
           let _ = ChildProcess.execSync(
             `chmod +x ${scriptPath}`,
             {"encoding": "utf8", "stdio": "pipe"},
           )
 
-          debugLog("Executing script with delayed Enter keypresses")
+          // Execute the initialization script
           let result = ChildProcess.execSync(
-            scriptPath,
+            command,
             {
               "encoding": "utf8",
               "stdio": "pipe",
-              "timeout": 300000, // 5 minute timeout (longer for the delays)
+              "timeout": 300000, // 5 minute timeout
             },
           )
 
-          // Clean up the script
-          let _ = ChildProcess.execSync(`rm ${scriptPath}`, {"encoding": "utf8", "stdio": "pipe"})
-
-          debugLog("Command output: " ++ result)
-          debugLog("Command executed successfully with delayed keystrokes")
-
-          // Return success message
+          // Process result (the bash script will output appropriate messages)
           {
             content: [
               {
                 type_: "text",
-                text: `Successfully initialized Envio indexer "${name}" in ${outputDirectory}`,
+                text: result->String.trim,
               },
             ],
           }
